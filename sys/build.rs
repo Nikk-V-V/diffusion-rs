@@ -27,7 +27,7 @@ fn main() {
     println!("cargo:rerun-if-changed=patches");
     let mut patches: Vec<PathBuf> = read_dir("patches")
         .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "patch")).collect())
-        .unwrap_or_default();
+        .expect("sys/patches");
     patches.sort();
     if diffusion_root.exists() {
         std::fs::remove_dir_all(&diffusion_root).unwrap();
@@ -42,7 +42,7 @@ fn main() {
     });
     for p in &patches {
         let ok = std::process::Command::new("patch")
-            .args(["-p1", "--forward", "--batch", "-d"])
+            .args(["-p1", "--forward", "--batch", "--fuzz=0", "-d"])
             .arg(&diffusion_root)
             .arg("-i")
             .arg(std::fs::canonicalize(p).unwrap())
@@ -57,7 +57,8 @@ fn main() {
         .clang_arg(format!("-I{}", diffusion_root.display()))
         .clang_arg(format!("-I{}", diffusion_root.join("ggml/include").display()))
         .rustified_non_exhaustive_enum(".*")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        // The patched copy is rewritten on every run: watching its headers would rebuild sd.cpp on every cargo call.
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new().rerun_on_header_files(false)))
         .generate()
         .unwrap()
         .write_to_file(out.join("bindings.rs"));

@@ -9,7 +9,7 @@ index 8f46262..092d022 100644
 -    int nth = 32; // SIMD width
 +    // Game Harness: one SIMD group per group of channels left the GPU idle (32 groups x 32 threads; 1.1 s of the
 +    // flux2 VAE decode at 1024 px on M5 Pro): fill the threadgroup instead.
-+    int nth = std::min(1024, ggml_metal_pipeline_max_theads_per_threadgroup(pipeline));
++    int nth = std::min(1024, ggml_metal_pipeline_max_theads_per_threadgroup(pipeline)) / 32 * 32;
      //while (nth < ne00/4 && nth < ggml_metal_pipeline_max_theads_per_threadgroup(pipeline)) {
      //    nth *= 2;
      //}
