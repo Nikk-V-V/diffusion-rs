@@ -1,0 +1,16 @@
+diff --git a/src/core/ggml_extend.cpp b/src/core/ggml_extend.cpp
+index 64c1533..d362a60 100644
+--- a/src/core/ggml_extend.cpp
++++ b/src/core/ggml_extend.cpp
+@@ -135,6 +135,11 @@ ggml_tensor* ggml_ext_silu_act(ggml_context* ctx, ggml_tensor* x, bool gate_firs
+     // x: [ne3, ne2, ne1, ne0]
+     // return: [ne3, ne2, ne1, ne0/2]
+ 
++    // Game Harness: one fused GLU kernel instead of cont + silu + mul (klein: ~0.2 s a step on Metal).
++    if (x->ne[0] % 2 == 0 && ggml_is_contiguous_1(x) && (x->type == GGML_TYPE_F32 || x->type == GGML_TYPE_F16)) {
++        return gate_first ? ggml_swiglu(ctx, x) : ggml_swiglu_swapped(ctx, x);
++    }
++
+     auto x_vec = ggml_ext_chunk(ctx, x, 2, 0, false);
+     ggml_tensor* gate;
+     if (gate_first) {

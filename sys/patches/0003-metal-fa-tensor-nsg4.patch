@@ -1,0 +1,13 @@
+diff --git a/ggml/src/ggml-metal/ggml-metal-impl.h b/ggml/src/ggml-metal/ggml-metal-impl.h
+index d8c4dce..3b46626 100644
+--- a/ggml/src/ggml-metal/ggml-metal-impl.h
++++ b/ggml/src/ggml-metal/ggml-metal-impl.h
+@@ -132,7 +132,7 @@
+ #define OP_FLASH_ATTN_EXT_TENSOR_NQPSG       32
+ #define OP_FLASH_ATTN_EXT_TENSOR_NQPSG_LARGE 16
+ #define OP_FLASH_ATTN_EXT_TENSOR_NCPSG       64
+-#define OP_FLASH_ATTN_EXT_TENSOR_NSG         8
++#define OP_FLASH_ATTN_EXT_TENSOR_NSG         4 // Game Harness: 8 → 4, klein's 24×128×4608 attention 24.3 → 16.6 ms on M5 Pro
+ 
+ #define OP_FLASH_ATTN_EXT_VEC_NQPSG 1
+ #define OP_FLASH_ATTN_EXT_VEC_NCPSG 32
