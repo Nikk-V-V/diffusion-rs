@@ -22,22 +22,40 @@ fn main() {
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     let diffusion_root = out.join("stable-diffusion.cpp/");
 
-    if !diffusion_root.exists() {
-        create_dir_all(&diffusion_root).unwrap();
-        dir::copy("./stable-diffusion.cpp", &out, &Default::default()).unwrap_or_else(|e| {
-            panic!(
-                "Failed to copy stable-diffusion sources into {}: {}",
-                diffusion_root.display(),
-                e
-            )
-        });
+    // Game Harness: our changes to sd.cpp and ggml live as patches in `patches/`, applied in name order to a
+    // fresh copy of the sources whenever they change (so the copy is never patched twice).
+    println!("cargo:rerun-if-changed=patches");
+    let mut patches: Vec<PathBuf> = read_dir("patches")
+        .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "patch")).collect())
+        .unwrap_or_default();
+    patches.sort();
+    if diffusion_root.exists() {
+        std::fs::remove_dir_all(&diffusion_root).unwrap();
+    }
+    create_dir_all(&diffusion_root).unwrap();
+    dir::copy("./stable-diffusion.cpp", &out, &Default::default()).unwrap_or_else(|e| {
+        panic!(
+            "Failed to copy stable-diffusion sources into {}: {}",
+            diffusion_root.display(),
+            e
+        )
+    });
+    for p in &patches {
+        let ok = std::process::Command::new("patch")
+            .args(["-p1", "--forward", "--batch", "-d"])
+            .arg(&diffusion_root)
+            .arg("-i")
+            .arg(std::fs::canonicalize(p).unwrap())
+            .status()
+            .is_ok_and(|s| s.success());
+        assert!(ok, "the patch {} did not apply", p.display());
     }
 
-    // Bindgen
+    // Bindgen (on the patched headers)
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
-        .clang_arg("-I./stable-diffusion.cpp")
-        .clang_arg("-I./stable-diffusion.cpp/ggml/include")
+        .clang_arg(format!("-I{}", diffusion_root.display()))
+        .clang_arg(format!("-I{}", diffusion_root.join("ggml/include").display()))
         .rustified_non_exhaustive_enum(".*")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
