@@ -1,0 +1,27 @@
+diff --git a/ggml/src/ggml-metal/ggml-metal-ops.cpp b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+index 8f46262..092d022 100644
+--- a/ggml/src/ggml-metal/ggml-metal-ops.cpp
++++ b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+@@ -4383,7 +4383,9 @@ int ggml_metal_op_group_norm(ggml_metal_op_t ctx, int idx) {
+ 
+     auto pipeline = ggml_metal_library_get_pipeline_group_norm(lib, op);
+ 
+-    int nth = 32; // SIMD width
++    // Game Harness: one SIMD group per group of channels left the GPU idle (32 groups x 32 threads; 1.1 s of the
++    // flux2 VAE decode at 1024 px on M5 Pro): fill the threadgroup instead.
++    int nth = std::min(1024, ggml_metal_pipeline_max_theads_per_threadgroup(pipeline));
+     //while (nth < ne00/4 && nth < ggml_metal_pipeline_max_theads_per_threadgroup(pipeline)) {
+     //    nth *= 2;
+     //}
+diff --git a/ggml/src/ggml-metal/kernels/norm.metal b/ggml/src/ggml-metal/kernels/norm.metal
+index c76d0c7..84d1b6c 100644
+--- a/ggml/src/ggml-metal/kernels/norm.metal
++++ b/ggml/src/ggml-metal/kernels/norm.metal
+@@ -292,6 +292,7 @@ kernel void kernel_group_norm_f32(
+         tmp += xi * xi;
+     }
+ 
++    threadgroup_barrier(mem_flags::mem_threadgroup);
+     tmp = simd_sum(tmp);
+     if (ntg > N_SIMDWIDTH) {
+         if (sgitg == 0) {
