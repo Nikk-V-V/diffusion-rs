@@ -57,8 +57,8 @@ fn main() {
         .clang_arg(format!("-I{}", diffusion_root.display()))
         .clang_arg(format!("-I{}", diffusion_root.join("ggml/include").display()))
         .rustified_non_exhaustive_enum(".*")
-        // The patched copy is rewritten on every run: watching its headers would rebuild sd.cpp on every cargo call.
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new().rerun_on_header_files(false)))
+        // No CargoCallbacks: the patched copy is rewritten on every run, and watching its headers (and the ones they
+        // include) rebuilt sd.cpp on every cargo call. wrapper.h and patches/ are watched above.
         .generate()
         .unwrap()
         .write_to_file(out.join("bindings.rs"));
